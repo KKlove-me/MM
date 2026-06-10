@@ -1,0 +1,14 @@
+.pnpm-store/
+node_modules/
+dist/
+src-tauri/target/
+src-tauri/gen/
+
+*.log
+*.local
+.DS_Store
+Thumbs.db
+
+.idea/**/workspace.xml
+.idea/**/shelf/
+.idea/**/httpRequests/
