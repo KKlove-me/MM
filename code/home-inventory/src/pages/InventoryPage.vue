@@ -1,13 +1,8 @@
 <script setup lang="ts">
 import { computed, reactive } from "vue";
 import AppPanel from "../components/common/AppPanel.vue";
-import {
-  createStockBatch,
-  type Item,
-  type Location,
-  type StockBatch,
-  type Unit,
-} from "../lib/db";
+import { createStockBatch } from "../lib/db";
+import type { Item, Location, StockBatch, Unit } from "../lib/db";
 import {
   batchRemainingText,
   convertUnitQuantity,

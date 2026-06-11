@@ -2,13 +2,8 @@
 import { computed, reactive, watch } from "vue";
 import AppPanel from "../components/common/AppPanel.vue";
 import EmptyState from "../components/common/EmptyState.vue";
-import {
-  createConsumption,
-  type NewConsumptionInput,
-  type OpenConsumption,
-  type StockBatch,
-  type Unit,
-} from "../lib/db";
+import { createConsumption } from "../lib/db";
+import type { NewConsumptionInput, OpenConsumption, StockBatch, Unit } from "../lib/db";
 import {
   batchRemainingText,
   batchTitle,

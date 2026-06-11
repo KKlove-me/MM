@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "dev:tauri": "tauri dev",
-    "build": "vue-tsc -p tsconfig.json --noEmit && vite build",
+    "build": "vue-tsc -p tsconfig.app.json --noEmit && vite build",
     "preview": "vite preview",
     "tauri": "tauri"
   },

@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { reactive } from "vue";
 import AppPanel from "../components/common/AppPanel.vue";
-import { createItem, type Category, type Unit } from "../lib/db";
+import { createItem } from "../lib/db";
+import type { Category, Unit } from "../lib/db";
 
 defineProps<{
   categories: Category[];
