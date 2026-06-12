@@ -92,13 +92,19 @@ onMounted(async () => {
       </header>
 
       <nav class="action-nav" aria-label="功能导航">
-        <router-link v-for="item in navItems" :key="item.to" v-slot="{ href, navigate, isExactActive }" custom :to="item.to">
+        <router-link
+          v-for="item in navItems"
+          :key="item.to"
+          v-slot="{ href, navigate, isActive, isExactActive }"
+          custom
+          :to="item.to"
+        >
           <n-button
             tag="a"
             :href="href"
-            :secondary="!isExactActive"
+            :secondary="item.to === '/' ? !isExactActive : !isActive"
             strong
-            :type="isExactActive ? 'primary' : 'default'"
+            :type="(item.to === '/' ? isExactActive : isActive) ? 'primary' : 'default'"
             @click="navigate"
           >
             {{ item.label }}
@@ -114,6 +120,11 @@ onMounted(async () => {
         <component
           :is="Component"
           v-if="route.name === 'items'"
+          :items="items"
+        />
+        <component
+          :is="Component"
+          v-else-if="route.name === 'items-new'"
           :categories="categories"
           :units="units"
           @error="handleError"

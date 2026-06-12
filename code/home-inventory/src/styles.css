@@ -23,64 +23,14 @@ body {
   margin: 0;
 }
 
-button,
 input,
 select,
 textarea {
   font: inherit;
 }
 
-button {
-  min-height: 42px;
-  border: 0;
-  border-radius: 6px;
-  color: white;
-  background: #25635d;
-  cursor: pointer;
-}
-
-button:hover {
-  background: #1d4f4a;
-}
-
-input,
-select,
-textarea {
-  width: 100%;
-  min-height: 40px;
-  border: 1px solid #c9c3b8;
-  border-radius: 6px;
-  padding: 8px 10px;
-  color: #1f2933;
-  background: #fffdf9;
-}
-
-input:disabled {
-  color: #63717c;
-  background: #f2eee7;
-}
-
 textarea {
   resize: vertical;
-}
-
-table {
-  width: 100%;
-  border-collapse: collapse;
-}
-
-th,
-td {
-  border-bottom: 1px solid #e2ddd3;
-  padding: 10px 8px;
-  text-align: left;
-  vertical-align: top;
-}
-
-th {
-  color: #53606b;
-  font-size: 13px;
-  font-weight: 700;
 }
 
 h1,
@@ -98,19 +48,12 @@ h2 {
   font-size: 18px;
 }
 
-.panel {
-  border: 1px solid #ddd5c8;
-  border-radius: 8px;
-  padding: 16px;
-  background: #fffdf9;
-}
-
 .section-title {
-  margin-bottom: 14px;
+  display: grid;
+  gap: 4px;
 }
 
 .section-title p {
-  margin-top: 4px;
   color: #63717c;
   font-size: 13px;
 }
@@ -139,17 +82,17 @@ h2 {
 }
 
 .form-hint {
-  color: #63717c;
-  font-size: 13px;
+  margin-bottom: 16px;
 }
 
-.checkbox-line {
-  grid-template-columns: 18px 1fr;
-  align-items: center;
+.n-input-number,
+.n-date-picker {
+  width: 100%;
 }
 
-.checkbox-line input {
-  min-height: auto;
+.n-radio-group {
+  display: flex;
+  flex-wrap: wrap;
 }
 
 .table-wrap {
@@ -194,47 +137,14 @@ h2 {
 }
 
 .notice {
-  border: 1px solid #d8d0c3;
-  border-radius: 8px;
   margin: 12px 0;
-  padding: 10px 12px;
-  background: #fffdf9;
-}
-
-.notice.success {
-  color: #14532d;
-  border-color: #9ec8aa;
-  background: #eef8f0;
-}
-
-.notice.error {
-  color: #991b1b;
-  border-color: #e3aaa7;
-  background: #fff1f0;
 }
 
 .stat-card {
   min-height: 94px;
-  border: 1px solid #ddd5c8;
-  border-radius: 8px;
-  padding: 16px;
-  background: #fffdf9;
 }
 
-.stat-card span {
-  display: block;
-  color: #53606b;
-  font-size: 13px;
-}
-
-.stat-card strong {
-  display: block;
-  margin-top: 8px;
-  font-size: 30px;
-  line-height: 1;
-}
-
-.stat-card.warning strong {
+.stat-card.warning .n-statistic-value {
   color: #b45309;
 }
 

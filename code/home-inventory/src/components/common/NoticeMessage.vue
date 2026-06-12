@@ -6,5 +6,12 @@ defineProps<{
 </script>
 
 <template>
-  <p v-if="message" class="notice" :class="tone">{{ message }}</p>
+  <n-alert
+    v-if="message"
+    class="notice"
+    :show-icon="false"
+    :type="tone === 'error' ? 'error' : tone === 'success' ? 'success' : 'default'"
+  >
+    {{ message }}
+  </n-alert>
 </template>

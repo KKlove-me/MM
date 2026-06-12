@@ -96,10 +96,8 @@ export async function createConsumption(input: NewConsumptionInput) {
     throw new Error("消耗量不能大于当前库存剩余量");
   }
 
-  await db.execute("BEGIN");
-  try {
-    await db.execute(
-      `
+  await db.execute(
+    `
       INSERT INTO consumption_records (
         item_id, stock_batch_id, consumption_type, status, planned_quantity,
         actual_quantity, unit_id, package_quantity, package_unit_id,
@@ -107,38 +105,32 @@ export async function createConsumption(input: NewConsumptionInput) {
       )
       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CASE WHEN $4 = 'COMPLETED' THEN CURRENT_TIMESTAMP ELSE NULL END, $10, NULLIF($11, ''))
       `,
-      [
-        batch.item_id,
-        input.stockBatchId,
-        input.consumptionType,
-        input.status,
-        input.status === "IN_PROGRESS" ? quantity : null,
-        input.status === "COMPLETED" ? quantity : null,
-        batch.unit_id,
-        packageQuantity,
-        packageUnitId,
-        batch.location_snapshot,
-        input.note.trim(),
-      ],
+    [
+      batch.item_id,
+      input.stockBatchId,
+      input.consumptionType,
+      input.status,
+      input.status === "IN_PROGRESS" ? quantity : null,
+      input.status === "COMPLETED" ? quantity : null,
+      batch.unit_id,
+      packageQuantity,
+      packageUnitId,
+      batch.location_snapshot,
+      input.note.trim(),
+    ],
+  );
+
+  if (input.status === "COMPLETED") {
+    const nextQuantity = Math.max(0, batch.current_quantity - quantity);
+    await db.execute(
+      `
+      UPDATE stock_batches
+      SET current_quantity = $1,
+          status = CASE WHEN $1 = 0 THEN 'DEPLETED' ELSE status END,
+          updated_at = CURRENT_TIMESTAMP
+      WHERE id = $2
+      `,
+      [nextQuantity, input.stockBatchId],
     );
-
-    if (input.status === "COMPLETED") {
-      const nextQuantity = Math.max(0, batch.current_quantity - quantity);
-      await db.execute(
-        `
-        UPDATE stock_batches
-        SET current_quantity = $1,
-            status = CASE WHEN $1 = 0 THEN 'DEPLETED' ELSE status END,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-        `,
-        [nextQuantity, input.stockBatchId],
-      );
-    }
-
-    await db.execute("COMMIT");
-  } catch (error) {
-    await db.execute("ROLLBACK");
-    throw error;
   }
 }

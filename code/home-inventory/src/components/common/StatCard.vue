@@ -7,8 +7,7 @@ defineProps<{
 </script>
 
 <template>
-  <article class="stat-card" :class="tone">
-    <span>{{ label }}</span>
-    <strong>{{ value }}</strong>
-  </article>
+  <n-card class="stat-card" :class="tone" :bordered="true">
+    <n-statistic :label="label" :value="value" />
+  </n-card>
 </template>

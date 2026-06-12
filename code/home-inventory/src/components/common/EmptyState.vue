@@ -5,5 +5,5 @@ defineProps<{
 </script>
 
 <template>
-  <p class="empty-list">{{ text }}</p>
+  <n-empty class="empty-list" :description="text" size="small" />
 </template>
