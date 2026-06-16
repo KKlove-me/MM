@@ -8,7 +8,7 @@ export async function loadOpenConsumptions(): Promise<OpenConsumption[]> {
     SELECT
       r.id,
       i.name AS item_name,
-      TRIM(COALESCE(b.brand, '') || ' ' || COALESCE(b.spec, '')) AS batch_label,
+      COALESCE(b.brand, '') AS batch_label,
       r.planned_quantity,
       u.name AS unit_name,
       r.package_quantity,
@@ -72,7 +72,7 @@ export async function createConsumption(input: NewConsumptionInput) {
     }
 
     if (!batch.package_unit_id || !batch.package_size_quantity || !batch.package_size_unit_id) {
-      throw new Error("该批次没有包装规格，不能按包装消耗");
+      throw new Error("该批次没有包装信息，不能按包装消耗");
     }
 
     const packageSizeUnit = requireUnit(units, batch.package_size_unit_id, "单包装内容单位");

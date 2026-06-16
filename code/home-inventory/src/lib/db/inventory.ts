@@ -1,5 +1,5 @@
 import { getDb } from "./connection";
-import type { NewStockBatchInput, StockBatch } from "./types";
+import type { NewStockBatchInput, StockBatch, UpdateStockBatchInput } from "./types";
 import { convertQuantity, loadUnitsById, requireUnit, toPositiveNumber } from "./units";
 
 export async function loadStockBatches(): Promise<StockBatch[]> {
@@ -7,9 +7,9 @@ export async function loadStockBatches(): Promise<StockBatch[]> {
   return db.select<StockBatch[]>(`
     SELECT
       b.id,
+      b.item_id,
       i.name AS item_name,
       b.brand,
-      b.spec,
       b.current_quantity,
       b.unit_id,
       u.name AS unit_name,
@@ -20,8 +20,15 @@ export async function loadStockBatches(): Promise<StockBatch[]> {
       b.package_size_unit_id,
       su.name AS package_size_unit_name,
       b.expiry_date,
+      b.location_id,
       l.path_name AS location_name,
-      b.status
+      b.status,
+      b.note,
+      (
+        SELECT COUNT(*)
+        FROM consumption_records r
+        WHERE r.stock_batch_id = b.id
+      ) AS consumption_count
     FROM stock_batches b
     JOIN items i ON i.id = b.item_id
     JOIN units u ON u.id = b.unit_id
@@ -47,7 +54,6 @@ export async function createStockBatch(input: NewStockBatchInput) {
   let totalQuantity = toPositiveNumber(input.totalQuantity);
   let packageUnitId: number | null = null;
   let packageSizeUnitId: number | null = null;
-  let spec = input.spec.trim();
 
   if (hasPackage) {
     const packageUnit = requireUnit(units, input.packageUnitId!, "包装单位");
@@ -56,7 +62,6 @@ export async function createStockBatch(input: NewStockBatchInput) {
     totalQuantity = packageCount * perPackageQuantity;
     packageUnitId = packageUnit.id;
     packageSizeUnitId = packageSizeUnit.id;
-    spec ||= `${packageSizeQuantity}${packageSizeUnit.name}/${packageUnit.name}`;
   }
 
   if (!totalQuantity) {
@@ -66,16 +71,15 @@ export async function createStockBatch(input: NewStockBatchInput) {
   await db.execute(
     `
     INSERT INTO stock_batches (
-      item_id, brand, spec, initial_quantity, current_quantity, unit_id,
+      item_id, brand, initial_quantity, current_quantity, unit_id,
       package_count, package_unit_id, package_size_quantity, package_size_unit_id,
       expiry_date, inbound_date, location_id, note
     )
-    VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, $9, NULLIF($10, ''), date('now'), $11, NULLIF($12, ''))
+    VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), date('now'), $10, NULLIF($11, ''))
     `,
     [
       input.itemId,
       input.brand.trim() || null,
-      spec || null,
       totalQuantity,
       input.unitId,
       hasPackage ? packageCount : null,
@@ -87,4 +91,43 @@ export async function createStockBatch(input: NewStockBatchInput) {
       input.note.trim(),
     ],
   );
+}
+
+export async function updateStockBatch(input: UpdateStockBatchInput) {
+  const db = await getDb();
+  await db.execute(
+    `
+    UPDATE stock_batches
+    SET brand = NULLIF($1, ''),
+        expiry_date = NULLIF($2, ''),
+        location_id = $3,
+        status = $4,
+        note = NULLIF($5, ''),
+        updated_at = CURRENT_TIMESTAMP
+    WHERE id = $6
+    `,
+    [
+      input.brand.trim(),
+      input.expiryDate,
+      input.locationId,
+      input.status,
+      input.note.trim(),
+      input.id,
+    ],
+  );
+}
+
+export async function deleteStockBatch(id: number) {
+  const db = await getDb();
+  const rows = await db.select<Array<{ count: number }>>(
+    "SELECT COUNT(*) AS count FROM consumption_records WHERE stock_batch_id = $1",
+    [id],
+  );
+  const consumptionCount = rows[0]?.count ?? 0;
+
+  if (consumptionCount > 0) {
+    throw new Error("该批次已经有消耗记录，不能删除");
+  }
+
+  await db.execute("DELETE FROM stock_batches WHERE id = $1", [id]);
 }

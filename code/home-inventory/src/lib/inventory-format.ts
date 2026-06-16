@@ -1,5 +1,4 @@
 import type { OpenConsumption, StockBatch, Unit } from "./db";
-import { baseUnitId } from "./db";
 
 export function formatQuantity(value: number | null | undefined) {
   if (value === null || value === undefined || Number.isNaN(value)) {
@@ -26,20 +25,11 @@ export function convertUnitQuantity(
     return quantity;
   }
 
-  if (fromUnit.unit_type !== toUnit.unit_type || fromUnit.unit_type === "count") {
-    return null;
-  }
-
-  if (baseUnitId(fromUnit) !== baseUnitId(toUnit)) {
-    return null;
-  }
-
-  return (quantity * fromUnit.conversion_rate_to_base) / toUnit.conversion_rate_to_base;
+  return null;
 }
 
 export function batchTitle(batch: StockBatch) {
-  const detail = [batch.brand, batch.spec].filter(Boolean).join(" ");
-  return detail ? `${batch.item_name} - ${detail}` : batch.item_name;
+  return batch.brand ? `${batch.item_name} - ${batch.brand}` : batch.item_name;
 }
 
 export function packageSizeInBatchUnit(batch: StockBatch, units: Unit[]) {

@@ -8,7 +8,7 @@ export async function loadReferenceData(): Promise<ReferenceData> {
       "SELECT id, name, parent_id FROM categories WHERE status = 'NORMAL' ORDER BY sort_order, name",
     ),
     db.select<Unit[]>(
-      "SELECT id, name, unit_type, base_unit_id, conversion_rate_to_base FROM units WHERE status = 'NORMAL' ORDER BY id",
+      "SELECT id, name, unit_type FROM units WHERE status = 'NORMAL' ORDER BY id",
     ),
     db.select<Location[]>(
       "SELECT id, path_name FROM locations WHERE status = 'NORMAL' ORDER BY sort_order, path_name",

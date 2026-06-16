@@ -23,6 +23,7 @@ import {
   NStatistic,
   NTable,
   NTag,
+  NModal
 } from "naive-ui";
 
 const naiveComponents = [
@@ -49,6 +50,7 @@ const naiveComponents = [
   ["NStatistic", NStatistic],
   ["NTable", NTable],
   ["NTag", NTag],
+  ["NModal", NModal]
 ] as const;
 
 export function installNaive(app: App) {

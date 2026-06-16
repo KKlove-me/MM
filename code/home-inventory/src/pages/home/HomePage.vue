@@ -1,7 +1,7 @@
 <script setup lang="ts">
 const entries = [
   { to: "/items", label: "物资清单", description: "维护分类、默认单位和有效期策略" },
-  { to: "/inventory", label: "录入库存", description: "按批次记录品牌、规格、位置和包装" },
+  { to: "/inventory", label: "录入库存", description: "按批次记录品牌、位置和包装" },
   { to: "/consumption", label: "记录消耗", description: "扣减库存或标记已开封物资" },
   { to: "/alerts", label: "查看临期", description: "集中查看即将到期的批次" },
 ];
