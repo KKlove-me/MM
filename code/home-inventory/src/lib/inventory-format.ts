@@ -41,20 +41,21 @@ export function packageSizeInBatchUnit(batch: StockBatch, units: Unit[]) {
 }
 
 export function packageSizeText(batch: StockBatch) {
-  if (!batch.package_size_quantity || !batch.package_size_unit_name || !batch.package_unit_name) {
+  if (batch.entry_mode !== "CONTENT" || !batch.package_size_quantity || !batch.package_size_unit_name) {
     return "";
   }
 
-  return `${formatQuantity(batch.package_size_quantity)} ${batch.package_size_unit_name}/${batch.package_unit_name}`;
+  const countText = batch.package_count ? ` × ${formatQuantity(batch.package_count)} 个` : "";
+  return `${formatQuantity(batch.package_size_quantity)} ${batch.package_size_unit_name}/个${countText}`;
 }
 
 export function remainingPackageText(batch: StockBatch, units: Unit[]) {
   const perPackage = packageSizeInBatchUnit(batch, units);
-  if (!perPackage || !batch.package_unit_name) {
+  if (batch.entry_mode !== "CONTENT" || !perPackage) {
     return "";
   }
 
-  return `${formatQuantity(batch.current_quantity / perPackage)} ${batch.package_unit_name}`;
+  return `${formatQuantity(batch.current_quantity / perPackage)} 个`;
 }
 
 export function batchRemainingText(batch: StockBatch, units: Unit[]) {
@@ -64,16 +65,9 @@ export function batchRemainingText(batch: StockBatch, units: Unit[]) {
 }
 
 export function openConsumptionText(record: OpenConsumption) {
-  const contentText =
-    record.planned_quantity === null
-      ? `未估算 ${record.unit_name}`
-      : `${formatQuantity(record.planned_quantity)} ${record.unit_name}`;
-
-  if (!record.package_quantity || !record.package_unit_name) {
-    return contentText;
-  }
-
-  return `${contentText}，约 ${formatQuantity(record.package_quantity)} ${record.package_unit_name}`;
+  return record.planned_quantity === null
+    ? `未估算 ${record.unit_name}`
+    : `${formatQuantity(record.planned_quantity)} ${record.unit_name}`;
 }
 
 export function statusLabel(status: string) {

@@ -1,6 +1,6 @@
 import { getDb } from "./connection";
 import type { NewStockBatchInput, StockBatch, UpdateStockBatchInput } from "./types";
-import { convertQuantity, loadUnitsById, requireUnit, toPositiveNumber } from "./units";
+import { toPositiveNumber } from "./units";
 
 export async function loadStockBatches(): Promise<StockBatch[]> {
   const db = await getDb();
@@ -10,12 +10,11 @@ export async function loadStockBatches(): Promise<StockBatch[]> {
       b.item_id,
       i.name AS item_name,
       b.brand,
+      b.entry_mode,
       b.current_quantity,
       b.unit_id,
       u.name AS unit_name,
       b.package_count,
-      b.package_unit_id,
-      pu.name AS package_unit_name,
       b.package_size_quantity,
       b.package_size_unit_id,
       su.name AS package_size_unit_name,
@@ -32,7 +31,6 @@ export async function loadStockBatches(): Promise<StockBatch[]> {
     FROM stock_batches b
     JOIN items i ON i.id = b.item_id
     JOIN units u ON u.id = b.unit_id
-    LEFT JOIN units pu ON pu.id = b.package_unit_id
     LEFT JOIN units su ON su.id = b.package_size_unit_id
     LEFT JOIN locations l ON l.id = b.location_id
     ORDER BY b.status, b.expiry_date IS NULL, b.expiry_date, b.id DESC
@@ -41,27 +39,41 @@ export async function loadStockBatches(): Promise<StockBatch[]> {
 
 export async function createStockBatch(input: NewStockBatchInput) {
   const db = await getDb();
-  const packageCount = toPositiveNumber(input.packageCount);
-  const packageSizeQuantity = toPositiveNumber(input.packageSizeQuantity);
-  const hasPackage =
-    packageCount !== null &&
-    packageSizeQuantity !== null &&
-    input.packageUnitId !== null &&
-    input.packageSizeUnitId !== null;
+  const items = await db.select<Array<{ default_unit_id: number; unit_type: string }>>(
+    `
+    SELECT i.default_unit_id, u.unit_type
+    FROM items i
+    JOIN units u ON u.id = i.default_unit_id
+    WHERE i.id = $1
+    `,
+    [input.itemId],
+  );
+  const item = items[0];
 
-  const units = await loadUnitsById(db, [input.unitId, input.packageUnitId, input.packageSizeUnitId]);
-  const stockUnit = requireUnit(units, input.unitId, "库存单位");
-  let totalQuantity = toPositiveNumber(input.totalQuantity);
-  let packageUnitId: number | null = null;
+  if (!item) {
+    throw new Error("未找到物资");
+  }
+
+  let totalQuantity: number | null = null;
+  let packageCount: number | null = null;
+  let packageSizeQuantity: number | null = null;
   let packageSizeUnitId: number | null = null;
 
-  if (hasPackage) {
-    const packageUnit = requireUnit(units, input.packageUnitId!, "包装单位");
-    const packageSizeUnit = requireUnit(units, input.packageSizeUnitId!, "单包装内容单位");
-    const perPackageQuantity = convertQuantity(packageSizeQuantity, packageSizeUnit, stockUnit);
-    totalQuantity = packageCount * perPackageQuantity;
-    packageUnitId = packageUnit.id;
-    packageSizeUnitId = packageSizeUnit.id;
+  if (input.entryMode === "CONTENT") {
+    packageCount = toPositiveNumber(input.packageCount);
+    packageSizeQuantity = toPositiveNumber(input.packageSizeQuantity);
+    if (!packageCount || !packageSizeQuantity) {
+      throw new Error("请填写数量和每个内容量");
+    }
+
+    totalQuantity = packageCount * packageSizeQuantity;
+    packageSizeUnitId = item.default_unit_id;
+  } else {
+    if (item.unit_type !== "count") {
+      throw new Error("只有默认单位为计数单位的物资才能按总个数录入");
+    }
+
+    totalQuantity = toPositiveNumber(input.totalQuantity);
   }
 
   if (!totalQuantity) {
@@ -71,20 +83,20 @@ export async function createStockBatch(input: NewStockBatchInput) {
   await db.execute(
     `
     INSERT INTO stock_batches (
-      item_id, brand, initial_quantity, current_quantity, unit_id,
-      package_count, package_unit_id, package_size_quantity, package_size_unit_id,
+      item_id, brand, entry_mode, initial_quantity, current_quantity, unit_id,
+      package_count, package_size_quantity, package_size_unit_id,
       expiry_date, inbound_date, location_id, note
     )
-    VALUES ($1, $2, $3, $3, $4, $5, $6, $7, $8, NULLIF($9, ''), date('now'), $10, NULLIF($11, ''))
+    VALUES ($1, $2, $3, $4, $4, $5, $6, $7, $8, NULLIF($9, ''), date('now'), $10, NULLIF($11, ''))
     `,
     [
       input.itemId,
       input.brand.trim() || null,
+      input.entryMode,
       totalQuantity,
-      input.unitId,
-      hasPackage ? packageCount : null,
-      packageUnitId,
-      hasPackage ? packageSizeQuantity : null,
+      item.default_unit_id,
+      packageCount,
+      packageSizeQuantity,
       packageSizeUnitId,
       input.expiryDate,
       input.locationId,

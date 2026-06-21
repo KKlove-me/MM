@@ -9,7 +9,6 @@ import {
   batchTitle,
   openConsumptionText,
   packageSizeText,
-  remainingPackageText,
 } from "../../lib/inventory-format";
 
 const props = defineProps<{
@@ -27,15 +26,16 @@ const consumptionForm = reactive<NewConsumptionInput>({
   stockBatchId: 0,
   consumptionType: "PARTIAL",
   status: "COMPLETED",
-  mode: "CONTENT",
   quantity: 500,
-  unitId: 10,
-  packageQuantity: 1,
   note: "",
 });
 
 const selectedConsumptionBatch = computed(
   () => props.activeStockBatches.find((batch) => batch.id === consumptionForm.stockBatchId) ?? null,
+);
+
+const selectedConsumptionUnit = computed(() =>
+  props.units.find((unit) => unit.id === selectedConsumptionBatch.value?.unit_id) ?? null,
 );
 
 const batchOptions = computed(() =>
@@ -45,16 +45,9 @@ const batchOptions = computed(() =>
   })),
 );
 
-const unitOptions = computed(() =>
-  props.units.map((unit) => ({
-    label: unit.name,
-    value: unit.id,
-  })),
-);
-
-const canConsumeByPackage = computed(() => {
+const quantityLabel = computed(() => {
   const batch = selectedConsumptionBatch.value;
-  return Boolean(batch?.package_unit_id && batch.package_size_quantity && batch.package_size_unit_id);
+  return batch?.entry_mode === "COUNT" ? "个数" : "内容量";
 });
 
 function syncConsumptionBatch() {
@@ -70,18 +63,6 @@ function syncConsumptionBatch() {
   }
 }
 
-function syncConsumptionUnit() {
-  const batch = selectedConsumptionBatch.value;
-  if (!batch) {
-    return;
-  }
-
-  consumptionForm.unitId = batch.unit_id;
-  if (!canConsumeByPackage.value && consumptionForm.mode === "PACKAGE") {
-    consumptionForm.mode = "CONTENT";
-  }
-}
-
 async function submitConsumption() {
   if (!consumptionForm.stockBatchId) {
     emit("error", "请选择库存批次");
@@ -89,10 +70,7 @@ async function submitConsumption() {
   }
 
   try {
-    await createConsumption({
-      ...consumptionForm,
-      unitId: consumptionForm.mode === "CONTENT" ? consumptionForm.unitId : null,
-    });
+    await createConsumption(consumptionForm);
     consumptionForm.note = "";
     emit("saved", consumptionForm.status === "IN_PROGRESS" ? "已标记为消耗中" : "已记录消耗");
   } catch (error) {
@@ -104,21 +82,9 @@ watch(
   () => props.activeStockBatches,
   () => {
     syncConsumptionBatch();
-    syncConsumptionUnit();
   },
   { immediate: true },
 );
-
-watch(
-  () => consumptionForm.stockBatchId,
-  () => syncConsumptionUnit(),
-);
-
-watch(canConsumeByPackage, (canUsePackage) => {
-  if (!canUsePackage && consumptionForm.mode === "PACKAGE") {
-    consumptionForm.mode = "CONTENT";
-  }
-});
 </script>
 
 <template>
@@ -141,27 +107,8 @@ watch(canConsumeByPackage, (canUsePackage) => {
               <n-radio-button value="IN_PROGRESS">消耗中 / 已开封</n-radio-button>
             </n-radio-group>
           </n-form-item>
-          <n-form-item label="消耗方式">
-            <n-radio-group v-model:value="consumptionForm.mode">
-              <n-radio-button value="CONTENT">按内容量消耗</n-radio-button>
-              <n-radio-button :disabled="!canConsumeByPackage" value="PACKAGE">按包装消耗</n-radio-button>
-            </n-radio-group>
-          </n-form-item>
-          <div v-if="consumptionForm.mode === 'PACKAGE'" class="inline-fields">
-            <n-form-item label="包装数量">
-              <n-input-number
-                v-model:value="consumptionForm.packageQuantity"
-                :min="0"
-                :step="0.01"
-                placeholder="0"
-              />
-            </n-form-item>
-            <n-form-item label="包装单位">
-              <n-input :value="selectedConsumptionBatch?.package_unit_name || ''" disabled />
-            </n-form-item>
-          </div>
-          <div v-else class="inline-fields">
-            <n-form-item label="内容量">
+          <div class="inline-fields">
+            <n-form-item :label="quantityLabel">
               <n-input-number
                 v-model:value="consumptionForm.quantity"
                 :min="0"
@@ -170,12 +117,11 @@ watch(canConsumeByPackage, (canUsePackage) => {
               />
             </n-form-item>
             <n-form-item label="单位">
-              <n-select v-model:value="consumptionForm.unitId" :options="unitOptions" />
+              <n-input :value="selectedConsumptionUnit?.name || ''" disabled />
             </n-form-item>
           </div>
-          <n-alert v-if="selectedConsumptionBatch && canConsumeByPackage" class="form-hint" :show-icon="false" type="info">
-            当前包装：{{ packageSizeText(selectedConsumptionBatch) }}；剩余约
-            {{ remainingPackageText(selectedConsumptionBatch, units) }}
+          <n-alert v-if="selectedConsumptionBatch && selectedConsumptionBatch.entry_mode === 'CONTENT'" class="form-hint" :show-icon="false" type="info">
+            当前内容：{{ packageSizeText(selectedConsumptionBatch) }}
           </n-alert>
           <n-form-item label="备注">
             <n-input v-model:value="consumptionForm.note" placeholder="例如：做晚饭用掉" type="textarea" />

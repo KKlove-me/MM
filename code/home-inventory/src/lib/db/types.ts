@@ -29,12 +29,11 @@ export interface StockBatch {
   item_id: number;
   item_name: string;
   brand: string | null;
+  entry_mode: "CONTENT" | "COUNT";
   current_quantity: number;
   unit_id: number;
   unit_name: string;
   package_count: number | null;
-  package_unit_id: number | null;
-  package_unit_name: string | null;
   package_size_quantity: number | null;
   package_size_unit_id: number | null;
   package_size_unit_name: string | null;
@@ -52,8 +51,6 @@ export interface OpenConsumption {
   batch_label: string;
   planned_quantity: number | null;
   unit_name: string;
-  package_quantity: number | null;
-  package_unit_name: string | null;
   started_at: string;
   location_snapshot: string | null;
 }
@@ -82,12 +79,10 @@ export interface NewItemInput {
 export interface NewStockBatchInput {
   itemId: number;
   brand: string;
+  entryMode: "CONTENT" | "COUNT";
   totalQuantity: number | null;
-  unitId: number;
   packageCount: number | null;
-  packageUnitId: number | null;
   packageSizeQuantity: number | null;
-  packageSizeUnitId: number | null;
   expiryDate: string;
   locationId: number | null;
   note: string;
@@ -106,9 +101,6 @@ export interface NewConsumptionInput {
   stockBatchId: number;
   consumptionType: "ONCE" | "PARTIAL" | "CONTINUOUS";
   status: "IN_PROGRESS" | "COMPLETED";
-  mode: "CONTENT" | "PACKAGE";
   quantity: number | null;
-  unitId: number | null;
-  packageQuantity: number | null;
   note: string;
 }

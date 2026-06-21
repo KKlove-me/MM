@@ -13,12 +13,13 @@ import {
   statusLabel,
 } from "../../lib/inventory-format";
 
-type EntryMode = "PACKAGE" | "TOTAL";
+type EntryMode = "CONTENT" | "COUNT";
 type OptionValue = number | string | null;
 type Option<T extends OptionValue = OptionValue> = {
   label: string;
   value: T;
   meta?: string;
+  disabled?: boolean;
 };
 
 interface InventoryGroup {
@@ -47,16 +48,13 @@ const emit = defineEmits<{
 const showEditModal = ref(false);
 const expandedGroupKeys = ref<string[]>([]);
 
-const stockForm = reactive<NewStockBatchInput & { entryMode: EntryMode }>({
+const stockForm = reactive<NewStockBatchInput>({
   itemId: 0,
   brand: "",
-  entryMode: "PACKAGE",
+  entryMode: "CONTENT",
   totalQuantity: 500,
-  unitId: 0,
   packageCount: 5,
-  packageUnitId: null,
   packageSizeQuantity: 1000,
-  packageSizeUnitId: null,
   expiryDate: "",
   locationId: null,
   note: "",
@@ -71,8 +69,9 @@ const editForm = reactive<UpdateStockBatchInput>({
   note: "",
 });
 
-const packageUnits = computed(() => props.units.filter((unit) => unit.unit_type === "count"));
 const selectedStockItem = computed(() => props.items.find((item) => item.id === stockForm.itemId) ?? null);
+const selectedStockUnit = computed(() => findUnit(selectedStockItem.value?.default_unit_id));
+const canUseCountEntry = computed(() => selectedStockUnit.value?.unit_type === "count");
 const editingBatch = computed(() => props.stockBatches.find((batch) => batch.id === editForm.id) ?? null);
 
 const itemOptions = computed<Option<number>[]>(() =>
@@ -80,21 +79,6 @@ const itemOptions = computed<Option<number>[]>(() =>
     label: item.name,
     value: item.id,
     meta: item.category_name,
-  })),
-);
-
-const unitOptions = computed<Option<number>[]>(() =>
-  props.units.map((unit) => ({
-    label: unit.name,
-    value: unit.id,
-    meta: unit.unit_type,
-  })),
-);
-
-const packageUnitOptions = computed<Option<number>[]>(() =>
-  packageUnits.value.map((unit) => ({
-    label: unit.name,
-    value: unit.id,
   })),
 );
 
@@ -106,10 +90,15 @@ const locationOptions = computed<Option<number | null>[]>(() => [
   })),
 ]);
 
-const entryModeOptions: Option<EntryMode>[] = [
-  { label: "按包装录入", value: "PACKAGE" },
-  { label: "直接填总量", value: "TOTAL" },
-];
+const entryModeOptions = computed<Option<EntryMode>[]>(() => [
+  { label: "内容物录入", value: "CONTENT" },
+  {
+    label: "总个数录入",
+    value: "COUNT",
+    meta: canUseCountEntry.value ? undefined : "仅计数单位",
+    disabled: !canUseCountEntry.value,
+  },
+]);
 
 const statusOptions: Option<string>[] = [
   { label: "正常", value: "NORMAL" },
@@ -137,26 +126,15 @@ const editExpiryTimestamp = computed({
 });
 
 const stockTotalPreview = computed(() => {
-  if (stockForm.entryMode !== "PACKAGE") {
+  if (stockForm.entryMode === "COUNT") {
     return stockForm.totalQuantity;
   }
 
-  if (
-    !stockForm.packageCount ||
-    !stockForm.packageSizeQuantity ||
-    !stockForm.packageSizeUnitId ||
-    !stockForm.unitId
-  ) {
+  if (!stockForm.packageCount || !stockForm.packageSizeQuantity) {
     return null;
   }
 
-  const perPackage = convertUnitQuantity(
-    stockForm.packageSizeQuantity,
-    stockForm.packageSizeUnitId,
-    stockForm.unitId,
-    props.units,
-  );
-  return perPackage === null ? null : stockForm.packageCount * perPackage;
+  return stockForm.packageCount * stockForm.packageSizeQuantity;
 });
 
 const inventoryGroups = computed<InventoryGroup[]>(() => {
@@ -293,18 +271,8 @@ function syncNewStockDefaults() {
     stockForm.itemId = firstItem?.id ?? 0;
   }
 
-  const selectedItem = selectedStockItem.value;
-  const firstUnit = props.units[0];
-  if (!props.units.some((unit) => unit.id === stockForm.unitId)) {
-    stockForm.unitId = selectedItem?.default_unit_id ?? firstUnit?.id ?? 0;
-  }
-
-  if (!props.units.some((unit) => unit.id === stockForm.packageSizeUnitId)) {
-    stockForm.packageSizeUnitId = selectedItem?.default_unit_id ?? firstUnit?.id ?? null;
-  }
-
-  if (!packageUnits.value.some((unit) => unit.id === stockForm.packageUnitId)) {
-    stockForm.packageUnitId = packageUnits.value[0]?.id ?? null;
+  if (!canUseCountEntry.value && stockForm.entryMode === "COUNT") {
+    stockForm.entryMode = "CONTENT";
   }
 }
 
@@ -324,28 +292,24 @@ async function submitStockBatch() {
     return;
   }
 
-  if (stockForm.entryMode === "PACKAGE") {
-    if (
-      !stockForm.packageCount ||
-      !stockForm.packageUnitId ||
-      !stockForm.packageSizeQuantity ||
-      !stockForm.packageSizeUnitId
-    ) {
-      emit("error", "请填写包装数量和单包装内容量");
+  if (stockForm.entryMode === "CONTENT") {
+    if (!stockForm.packageCount || !stockForm.packageSizeQuantity) {
+      emit("error", "请填写数量和每个内容量");
       return;
     }
+  } else if (!canUseCountEntry.value) {
+    emit("error", "只有默认单位为计数单位的物资才能按总个数录入");
+    return;
   } else if (!stockForm.totalQuantity || stockForm.totalQuantity <= 0) {
-    emit("error", "请填写大于 0 的库存总量");
+    emit("error", "请填写大于 0 的总个数");
     return;
   }
 
   try {
     await createStockBatch({
       ...stockForm,
-      packageCount: stockForm.entryMode === "PACKAGE" ? stockForm.packageCount : null,
-      packageUnitId: stockForm.entryMode === "PACKAGE" ? stockForm.packageUnitId : null,
-      packageSizeQuantity: stockForm.entryMode === "PACKAGE" ? stockForm.packageSizeQuantity : null,
-      packageSizeUnitId: stockForm.entryMode === "PACKAGE" ? stockForm.packageSizeUnitId : null,
+      packageCount: stockForm.entryMode === "CONTENT" ? stockForm.packageCount : null,
+      packageSizeQuantity: stockForm.entryMode === "CONTENT" ? stockForm.packageSizeQuantity : null,
     });
     stockForm.brand = "";
     stockForm.note = "";
@@ -393,15 +357,7 @@ watch(
 
 watch(
   () => stockForm.itemId,
-  () => {
-    const item = selectedStockItem.value;
-    if (!item) {
-      return;
-    }
-
-    stockForm.unitId = item.default_unit_id;
-    stockForm.packageSizeUnitId = item.default_unit_id;
-  },
+  () => syncNewStockDefaults(),
 );
 </script>
 
@@ -488,8 +444,8 @@ watch(
           />
         </n-form-item>
 
-        <template v-if="stockForm.entryMode === 'PACKAGE'">
-          <n-form-item label="每件含量">
+        <template v-if="stockForm.entryMode === 'CONTENT'">
+          <n-form-item label="每个内容量">
             <n-input-number
               v-model:value="stockForm.packageSizeQuantity"
               :min="0"
@@ -497,24 +453,7 @@ watch(
               placeholder="0"
             />
           </n-form-item>
-          <n-form-item label="内容单位">
-            <OptionButtonGroup
-              v-model="stockForm.packageSizeUnitId"
-              compact
-              variant="segmented"
-              :options="unitOptions"
-            />
-          </n-form-item>
-          <n-form-item label="包装单位">
-            <OptionButtonGroup
-              v-model="stockForm.packageUnitId"
-              compact
-              variant="segmented"
-              :options="packageUnitOptions"
-            />
-          </n-form-item>
-
-          <n-form-item label="包装数量">
+          <n-form-item label="数量">
             <n-input-number
               v-model:value="stockForm.packageCount"
               :min="0"
@@ -522,22 +461,14 @@ watch(
               placeholder="0"
             />
           </n-form-item>
-          <n-form-item label="库存单位">
-            <OptionButtonGroup
-              v-model="stockForm.unitId"
-              compact
-              variant="segmented"
-              :options="unitOptions"
-            />
-          </n-form-item>
           <n-alert class="form-hint span-1" :show-icon="false" type="info">
-            {{ formatQuantity(stockTotalPreview) || "待计算" }}
-            {{ findUnit(stockForm.unitId)?.name || "" }}
+            总库存 {{ formatQuantity(stockTotalPreview) || "待计算" }}
+            {{ selectedStockUnit?.name || "" }}
           </n-alert>
         </template>
 
         <template v-else>
-          <n-form-item label="总量">
+          <n-form-item label="总个数">
             <n-input-number
               v-model:value="stockForm.totalQuantity"
               :min="0"
@@ -545,14 +476,9 @@ watch(
               placeholder="0"
             />
           </n-form-item>
-          <n-form-item class="span-2" label="单位">
-            <OptionButtonGroup
-              v-model="stockForm.unitId"
-              compact
-              variant="segmented"
-              :options="unitOptions"
-            />
-          </n-form-item>
+          <n-alert class="form-hint span-2" :show-icon="false" type="info">
+            单位 {{ selectedStockUnit?.name || "" }}
+          </n-alert>
         </template>
 
         <n-form-item label="有效期">
